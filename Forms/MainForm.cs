@@ -20,7 +20,6 @@ namespace BarcodeRenamer.Forms
         private Panel _statsPanel = null!;
         private Panel _logPanel = null!;
         private Panel _progressPanel = null!;
-        private SplitContainer _mainSplitter = null!;
 
         private Label _titleLabel = null!;
         private Label _scanFolderLabel = null!;
@@ -56,6 +55,7 @@ namespace BarcodeRenamer.Forms
         private GroupBox _configGroupBox = null!;
         private GroupBox _statsGroupBox = null!;
         private GroupBox _pendingGroupBox = null!;
+        private GroupBox _logGroupBox = null!;
 
         private List<string> _pendingFiles = new List<string>();
 
@@ -74,7 +74,7 @@ namespace BarcodeRenamer.Forms
         {
             this.SuspendLayout();
             
-            // 窗体设置 - 增大初始尺寸
+            // 窗体设置
             this.Text = "Barcode Renamer - 图片条形码识别重命名工具";
             this.Size = new Size(1280, 900);
             this.MinimumSize = new Size(1000, 700);
@@ -155,163 +155,90 @@ namespace BarcodeRenamer.Forms
             var contentPanel = new Panel
             {
                 Dock = DockStyle.Fill,
-                Padding = new Padding(10)
+                Padding = new Padding(10, 5, 10, 5)
             };
 
-            // 使用垂直分割器分隔上下区域
-            _mainSplitter = new SplitContainer
+            // 使用嵌套的 SplitContainer 实现所有区域可拖动调整
+            // 结构：从上到下依次分割
+            // 
+            // ┌─────────────────────┐
+            // │ 配置区域            │ ← split1.Panel1
+            // ├─────────────────────┤ ← split1.Splitter
+            // │ 控制按钮            │ ← split1.Panel2 → split2.Panel1
+            // ├─────────────────────┤ ← split2.Splitter
+            // │ 统计信息            │ ← split2.Panel2 → split3.Panel1
+            // ├─────────────────────┤ ← split3.Splitter
+            // │ 待处理文件          │ ← split3.Panel2 → split4.Panel1
+            // ├─────────────────────┤ ← split4.Splitter
+            // │ 操作日志            │ ← split4.Panel2
+            // └─────────────────────┘
+
+            // 创建所有区域面板
+            CreateConfigPanel();
+            CreateControlPanel();
+            CreateStatsPanel();
+            CreatePendingPanel();
+            CreateLogPanel();
+
+            // 创建嵌套的 SplitContainer
+            // split4: 待处理 vs 日志
+            var split4 = new SplitContainer
             {
                 Dock = DockStyle.Fill,
                 Orientation = Orientation.Horizontal,
-                SplitterDistance = 250,  // 上部区域初始高度
-                SplitterWidth = 8,
-                BackColor = Color.FromArgb(230, 230, 230)
+                SplitterDistance = 150,
+                SplitterWidth = 6,
+                BackColor = Color.FromArgb(200, 200, 200)
             };
+            split4.Panel1.Controls.Add(_pendingGroupBox);
+            split4.Panel2.Controls.Add(_logPanel);
+            split4.Panel1MinSize = 80;
+            split4.Panel2MinSize = 100;
 
-            // 上部区域：配置 + 控制 + 统计 + 待处理
-            var topPanel = new Panel
+            // split3: 统计 vs (待处理 + 日志)
+            var split3 = new SplitContainer
             {
                 Dock = DockStyle.Fill,
-                BackColor = Color.Transparent
+                Orientation = Orientation.Horizontal,
+                SplitterDistance = 70,
+                SplitterWidth = 6,
+                BackColor = Color.FromArgb(200, 200, 200)
             };
+            split3.Panel1.Controls.Add(_statsPanel);
+            split3.Panel2.Controls.Add(split4);
+            split3.Panel1MinSize = 60;
+            split3.Panel2MinSize = 200;
 
-            // 下部区域：日志
-            var bottomPanel = new Panel
+            // split2: 控制 vs (统计 + 待处理 + 日志)
+            var split2 = new SplitContainer
             {
                 Dock = DockStyle.Fill,
-                BackColor = Color.Transparent
+                Orientation = Orientation.Horizontal,
+                SplitterDistance = 60,
+                SplitterWidth = 6,
+                BackColor = Color.FromArgb(200, 200, 200)
             };
+            split2.Panel1.Controls.Add(_controlPanel);
+            split2.Panel2.Controls.Add(split3);
+            split2.Panel1MinSize = 50;
+            split2.Panel2MinSize = 300;
 
-            // 创建上部内容
-            CreateTopContent(topPanel);
-            
-            // 创建下部内容
-            CreateLogContent(bottomPanel);
+            // split1: 配置 vs (控制 + 统计 + 待处理 + 日志)
+            var split1 = new SplitContainer
+            {
+                Dock = DockStyle.Fill,
+                Orientation = Orientation.Horizontal,
+                SplitterDistance = 110,
+                SplitterWidth = 6,
+                BackColor = Color.FromArgb(200, 200, 200)
+            };
+            split1.Panel1.Controls.Add(_configPanel);
+            split1.Panel2.Controls.Add(split2);
+            split1.Panel1MinSize = 80;
+            split1.Panel2MinSize = 350;
 
-            _mainSplitter.Panel1.Controls.Add(topPanel);
-            _mainSplitter.Panel2.Controls.Add(bottomPanel);
-
-            contentPanel.Controls.Add(_mainSplitter);
+            contentPanel.Controls.Add(split1);
             this.Controls.Add(contentPanel);
-        }
-
-        private void CreateTopContent(Panel parent)
-        {
-            var topTableLayout = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 1,
-                RowCount = 4,
-                BackColor = Color.Transparent
-            };
-
-            // 行高设置：配置(固定)、控制(固定)、统计(固定)、待处理(填充)
-            topTableLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 110F));   // Config
-            topTableLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 60F));    // Control
-            topTableLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 70F));    // Stats
-            topTableLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));    // Pending
-
-            // 配置区域
-            CreateConfigPanel();
-            topTableLayout.Controls.Add(_configPanel, 0, 0);
-
-            // 控制区域
-            CreateControlPanel();
-            topTableLayout.Controls.Add(_controlPanel, 0, 1);
-
-            // 统计区域
-            CreateStatsPanel();
-            topTableLayout.Controls.Add(_statsPanel, 0, 2);
-
-            // 待处理区域
-            CreatePendingPanel();
-            topTableLayout.Controls.Add(_pendingGroupBox, 0, 3);
-
-            parent.Controls.Add(topTableLayout);
-        }
-
-        private void CreateLogContent(Panel parent)
-        {
-            _logPanel = new Panel
-            {
-                Dock = DockStyle.Fill,
-                BackColor = Color.White,
-                Padding = new Padding(5)
-            };
-
-            var logContainer = new Panel
-            {
-                Dock = DockStyle.Fill
-            };
-
-            var logHeader = new Panel
-            {
-                Dock = DockStyle.Top,
-                Height = 40,
-                BackColor = Color.FromArgb(248, 249, 250)
-            };
-
-            var logLabel = new Label
-            {
-                Text = "📝 操作日志",
-                Font = new Font("Microsoft YaHei UI", 10F, FontStyle.Bold),
-                AutoSize = true,
-                Location = new Point(10, 10)
-            };
-
-            _clearLogButton = new Button
-            {
-                Text = "清空日志",
-                Width = 85,
-                Height = 28,
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Location = new Point(parent.Width - 200, 6),
-                BackColor = Color.FromArgb(149, 165, 166),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Microsoft YaHei UI", 8.5F)
-            };
-            _clearLogButton.FlatAppearance.BorderSize = 0;
-
-            _openLogFolderButton = new Button
-            {
-                Text = "打开日志目录",
-                Width = 100,
-                Height = 28,
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Location = new Point(parent.Width - 100, 6),
-                BackColor = Color.FromArgb(149, 165, 166),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Microsoft YaHei UI", 8.5F)
-            };
-            _openLogFolderButton.FlatAppearance.BorderSize = 0;
-
-            // 更新按钮位置
-            logHeader.Resize += (s, e) =>
-            {
-                _clearLogButton.Left = logHeader.Width - 195;
-                _openLogFolderButton.Left = logHeader.Width - 100;
-            };
-
-            logHeader.Controls.Add(logLabel);
-            logHeader.Controls.Add(_clearLogButton);
-            logHeader.Controls.Add(_openLogFolderButton);
-
-            _logListBox = new ListBox
-            {
-                Dock = DockStyle.Fill,
-                IntegralHeight = false,
-                Font = new Font("Consolas", 9F),
-                BackColor = Color.FromArgb(248, 249, 250),
-                BorderStyle = BorderStyle.FixedSingle
-            };
-
-            logContainer.Controls.Add(_logListBox);
-            logContainer.Controls.Add(logHeader);
-
-            _logPanel.Controls.Add(logContainer);
-            parent.Controls.Add(_logPanel);
         }
 
         private void CreateConfigPanel()
@@ -320,7 +247,7 @@ namespace BarcodeRenamer.Forms
             {
                 Dock = DockStyle.Fill,
                 BackColor = Color.White,
-                Padding = new Padding(5, 10, 5, 10)
+                Padding = new Padding(5)
             };
 
             _configGroupBox = new GroupBox
@@ -348,7 +275,7 @@ namespace BarcodeRenamer.Forms
             {
                 Text = "扫描文件夹:",
                 AutoSize = true,
-                Margin = new Padding(5, 10, 10, 5),
+                Margin = new Padding(5, 8, 10, 5),
                 Font = new Font("Microsoft YaHei UI", 9F)
             };
 
@@ -381,7 +308,7 @@ namespace BarcodeRenamer.Forms
             {
                 Text = "输出文件夹:",
                 AutoSize = true,
-                Margin = new Padding(5, 10, 10, 5),
+                Margin = new Padding(5, 8, 10, 5),
                 Font = new Font("Microsoft YaHei UI", 9F)
             };
 
@@ -419,7 +346,7 @@ namespace BarcodeRenamer.Forms
             {
                 Dock = DockStyle.Fill,
                 BackColor = Color.FromArgb(250, 250, 250),
-                Padding = new Padding(10, 10, 10, 10)
+                Padding = new Padding(5, 8, 5, 8)
             };
 
             var flowPanel = new FlowLayoutPanel
@@ -427,15 +354,14 @@ namespace BarcodeRenamer.Forms
                 Dock = DockStyle.Fill,
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = false,
-                Padding = new Padding(0),
-                Anchor = AnchorStyles.Left | AnchorStyles.Top
+                Padding = new Padding(0)
             };
 
             _startScanButton = new Button
             {
                 Text = "▶ 开始扫描",
                 Size = new Size(130, 40),
-                Margin = new Padding(5, 5, 10, 5),
+                Margin = new Padding(5, 3, 10, 3),
                 BackColor = Color.FromArgb(46, 204, 113),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
@@ -447,7 +373,7 @@ namespace BarcodeRenamer.Forms
             {
                 Text = "⏹ 停止扫描",
                 Size = new Size(130, 40),
-                Margin = new Padding(0, 5, 10, 5),
+                Margin = new Padding(0, 3, 10, 3),
                 BackColor = Color.FromArgb(231, 76, 60),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
@@ -460,7 +386,7 @@ namespace BarcodeRenamer.Forms
             {
                 Text = "✏ 人工审核",
                 Size = new Size(130, 40),
-                Margin = new Padding(0, 5, 10, 5),
+                Margin = new Padding(0, 3, 10, 3),
                 BackColor = Color.FromArgb(155, 89, 182),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
@@ -472,7 +398,7 @@ namespace BarcodeRenamer.Forms
             {
                 Text = "💾 保存配置",
                 Size = new Size(120, 40),
-                Margin = new Padding(0, 5, 10, 5),
+                Margin = new Padding(0, 3, 10, 3),
                 BackColor = Color.FromArgb(52, 73, 94),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
@@ -494,7 +420,7 @@ namespace BarcodeRenamer.Forms
             {
                 Dock = DockStyle.Fill,
                 BackColor = Color.White,
-                Padding = new Padding(5, 5, 5, 10)
+                Padding = new Padding(5)
             };
 
             _statsGroupBox = new GroupBox
@@ -502,7 +428,7 @@ namespace BarcodeRenamer.Forms
                 Text = " 📊 统计信息 ",
                 Font = new Font("Microsoft YaHei UI", 10F, FontStyle.Bold),
                 Dock = DockStyle.Fill,
-                Padding = new Padding(10, 8, 10, 5)
+                Padding = new Padding(10, 5, 10, 5)
             };
 
             var statsLayout = new TableLayoutPanel
@@ -510,7 +436,7 @@ namespace BarcodeRenamer.Forms
                 Dock = DockStyle.Fill,
                 ColumnCount = 8,
                 RowCount = 1,
-                Padding = new Padding(5, 5, 5, 5)
+                Padding = new Padding(5, 3, 5, 3)
             };
 
             // 设置列样式
@@ -566,6 +492,87 @@ namespace BarcodeRenamer.Forms
             };
 
             _pendingGroupBox.Controls.Add(_pendingListBox);
+        }
+
+        private void CreateLogPanel()
+        {
+            _logPanel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.White,
+                Padding = new Padding(5)
+            };
+
+            _logGroupBox = new GroupBox
+            {
+                Text = " 📝 操作日志 ",
+                Font = new Font("Microsoft YaHei UI", 10F, FontStyle.Bold),
+                Dock = DockStyle.Fill,
+                Padding = new Padding(8, 8, 8, 8)
+            };
+
+            var logContainer = new Panel
+            {
+                Dock = DockStyle.Fill
+            };
+
+            var logHeader = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 35,
+                BackColor = Color.FromArgb(248, 249, 250)
+            };
+
+            _clearLogButton = new Button
+            {
+                Text = "清空日志",
+                Size = new Size(85, 26),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Location = new Point(logHeader.Width - 190, 4),
+                BackColor = Color.FromArgb(149, 165, 166),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Microsoft YaHei UI", 8.5F)
+            };
+            _clearLogButton.FlatAppearance.BorderSize = 0;
+
+            _openLogFolderButton = new Button
+            {
+                Text = "打开日志目录",
+                Size = new Size(100, 26),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Location = new Point(logHeader.Width - 95, 4),
+                BackColor = Color.FromArgb(149, 165, 166),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Microsoft YaHei UI", 8.5F)
+            };
+            _openLogFolderButton.FlatAppearance.BorderSize = 0;
+
+            // 更新按钮位置
+            logHeader.Resize += (s, e) =>
+            {
+                _clearLogButton.Left = logHeader.Width - 190;
+                _openLogFolderButton.Left = logHeader.Width - 95;
+            };
+
+            logHeader.Controls.Add(_clearLogButton);
+            logHeader.Controls.Add(_openLogFolderButton);
+
+            _logListBox = new ListBox
+            {
+                Dock = DockStyle.Fill,
+                IntegralHeight = false,
+                Font = new Font("Consolas", 9.5F),
+                BackColor = Color.FromArgb(248, 249, 250),
+                BorderStyle = BorderStyle.FixedSingle
+            };
+
+            logContainer.Controls.Add(_logListBox);
+            logContainer.Controls.Add(logHeader);
+
+            _logGroupBox.Controls.Add(logContainer);
+            _logPanel.Controls.Add(_logGroupBox);
         }
 
         private void InitializeEventHandlers()
