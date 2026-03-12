@@ -1,4 +1,5 @@
 using Newtonsoft.Json;
+using BarcodeRenamer.Helpers;
 
 namespace BarcodeRenamer.Models
 {

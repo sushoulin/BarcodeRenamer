@@ -1,4 +1,5 @@
 using BarcodeRenamer.Models;
+using BarcodeRenamer.Helpers;
 
 namespace BarcodeRenamer.Services
 {

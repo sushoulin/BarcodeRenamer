@@ -4,6 +4,7 @@ using ZXing.Windows.Compatibility;
 using System.Drawing;
 using System.Drawing.Imaging;
 using BarcodeRenamer.Models;
+using BarcodeRenamer.Helpers;
 
 namespace BarcodeRenamer.Services
 {
@@ -45,7 +46,6 @@ namespace BarcodeRenamer.Services
                 {
                     PossibleFormats = _supportedFormats,
                     TryHarder = true,
-                    ReadMultipleCodes = false,
                     ReturnCodabarStartEnd = true,
                     PureBarcode = false
                 }
