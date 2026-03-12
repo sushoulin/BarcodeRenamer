@@ -12,7 +12,6 @@ namespace BarcodeRenamer.Forms
         private readonly AppSettings _settings;
         private readonly BarcodeService _barcodeService;
         private readonly FileService _fileService;
-        private readonly ManualProcessForm? _manualProcessForm;
 
         // UI 控件
         private Panel _headerPanel = null!;
@@ -21,6 +20,7 @@ namespace BarcodeRenamer.Forms
         private Panel _statsPanel = null!;
         private Panel _logPanel = null!;
         private Panel _progressPanel = null!;
+        private SplitContainer _mainSplitter = null!;
 
         private Label _titleLabel = null!;
         private Label _scanFolderLabel = null!;
@@ -55,10 +55,8 @@ namespace BarcodeRenamer.Forms
 
         private GroupBox _configGroupBox = null!;
         private GroupBox _statsGroupBox = null!;
-        private GroupBox _logGroupBox = null!;
         private GroupBox _pendingGroupBox = null!;
 
-        private System.Windows.Forms.Timer? _autoScanTimer;
         private List<string> _pendingFiles = new List<string>();
 
         public MainForm()
@@ -76,25 +74,18 @@ namespace BarcodeRenamer.Forms
         {
             this.SuspendLayout();
             
-            // 窗体设置
+            // 窗体设置 - 增大初始尺寸
             this.Text = "Barcode Renamer - 图片条形码识别重命名工具";
-            this.Size = new Size(1100, 750);
-            this.MinimumSize = new Size(900, 600);
+            this.Size = new Size(1280, 900);
+            this.MinimumSize = new Size(1000, 700);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.Font = new Font("Microsoft YaHei UI", 9F);
             this.BackColor = Color.FromArgb(240, 240, 240);
 
             // 创建各区域
             CreateHeaderPanel();
-            CreateConfigPanel();
-            CreateControlPanel();
-            CreateStatsPanel();
-            CreatePendingPanel();
-            CreateLogPanel();
             CreateProgressPanel();
-
-            // 布局
-            LayoutControls();
+            CreateMainLayout();
 
             this.ResumeLayout(false);
             this.PerformLayout();
@@ -122,327 +113,6 @@ namespace BarcodeRenamer.Forms
 
             _headerPanel.Controls.Add(_titleLabel);
             this.Controls.Add(_headerPanel);
-        }
-
-        private void CreateConfigPanel()
-        {
-            _configPanel = new Panel
-            {
-                BackColor = Color.White,
-                Padding = new Padding(15)
-            };
-
-            _configGroupBox = new GroupBox
-            {
-                Text = " 📁 配置设置 ",
-                Font = new Font("Microsoft YaHei UI", 10F, FontStyle.Bold),
-                Dock = DockStyle.Fill,
-                Padding = new Padding(10)
-            };
-
-            var innerPanel = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 3,
-                RowCount = 2,
-                Padding = new Padding(5)
-            };
-
-            innerPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            innerPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            innerPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-
-            // 扫描文件夹
-            _scanFolderLabel = new Label
-            {
-                Text = "扫描文件夹:",
-                AutoSize = true,
-                Margin = new Padding(5, 12, 10, 5)
-            };
-
-            _scanFolderTextBox = new TextBox
-            {
-                Dock = DockStyle.Fill,
-                Margin = new Padding(5),
-                PlaceholderText = "选择要扫描的图片文件夹..."
-            };
-
-            _browseScanFolderButton = new Button
-            {
-                Text = "浏览...",
-                Width = 80,
-                Margin = new Padding(5),
-                BackColor = Color.FromArgb(52, 152, 219),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat
-            };
-            _browseScanFolderButton.FlatAppearance.BorderSize = 0;
-
-            innerPanel.Controls.Add(_scanFolderLabel, 0, 0);
-            innerPanel.Controls.Add(_scanFolderTextBox, 1, 0);
-            innerPanel.Controls.Add(_browseScanFolderButton, 2, 0);
-
-            // 输出文件夹
-            _outputFolderLabel = new Label
-            {
-                Text = "输出文件夹:",
-                AutoSize = true,
-                Margin = new Padding(5, 12, 10, 5)
-            };
-
-            _outputFolderTextBox = new TextBox
-            {
-                Dock = DockStyle.Fill,
-                Margin = new Padding(5),
-                PlaceholderText = "选择重命名后文件的输出文件夹..."
-            };
-
-            _browseOutputFolderButton = new Button
-            {
-                Text = "浏览...",
-                Width = 80,
-                Margin = new Padding(5),
-                BackColor = Color.FromArgb(52, 152, 219),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat
-            };
-            _browseOutputFolderButton.FlatAppearance.BorderSize = 0;
-
-            innerPanel.Controls.Add(_outputFolderLabel, 0, 1);
-            innerPanel.Controls.Add(_outputFolderTextBox, 1, 1);
-            innerPanel.Controls.Add(_browseOutputFolderButton, 2, 1);
-
-            _configGroupBox.Controls.Add(innerPanel);
-            _configPanel.Controls.Add(_configGroupBox);
-            this.Controls.Add(_configPanel);
-        }
-
-        private void CreateControlPanel()
-        {
-            _controlPanel = new Panel
-            {
-                BackColor = Color.FromArgb(250, 250, 250),
-                Padding = new Padding(15, 10, 15, 10)
-            };
-
-            var flowPanel = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = false,
-                Padding = new Padding(0)
-            };
-
-            _startScanButton = new Button
-            {
-                Text = "▶ 开始扫描",
-                Width = 120,
-                Height = 36,
-                Margin = new Padding(0, 0, 10, 0),
-                BackColor = Color.FromArgb(46, 204, 113),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Microsoft YaHei UI", 9.5F, FontStyle.Bold)
-            };
-            _startScanButton.FlatAppearance.BorderSize = 0;
-
-            _stopScanButton = new Button
-            {
-                Text = "⏹ 停止扫描",
-                Width = 120,
-                Height = 36,
-                Margin = new Padding(0, 0, 10, 0),
-                BackColor = Color.FromArgb(231, 76, 60),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Microsoft YaHei UI", 9.5F, FontStyle.Bold),
-                Enabled = false
-            };
-            _stopScanButton.FlatAppearance.BorderSize = 0;
-
-            _manualProcessButton = new Button
-            {
-                Text = "✏ 人工审核",
-                Width = 120,
-                Height = 36,
-                Margin = new Padding(0, 0, 10, 0),
-                BackColor = Color.FromArgb(155, 89, 182),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Microsoft YaHei UI", 9.5F, FontStyle.Bold)
-            };
-            _manualProcessButton.FlatAppearance.BorderSize = 0;
-
-            _saveConfigButton = new Button
-            {
-                Text = "💾 保存配置",
-                Width = 110,
-                Height = 36,
-                Margin = new Padding(0, 0, 10, 0),
-                BackColor = Color.FromArgb(52, 73, 94),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Microsoft YaHei UI", 9.5F, FontStyle.Bold)
-            };
-            _saveConfigButton.FlatAppearance.BorderSize = 0;
-
-            flowPanel.Controls.Add(_startScanButton);
-            flowPanel.Controls.Add(_stopScanButton);
-            flowPanel.Controls.Add(_manualProcessButton);
-            flowPanel.Controls.Add(_saveConfigButton);
-
-            _controlPanel.Controls.Add(flowPanel);
-            this.Controls.Add(_controlPanel);
-        }
-
-        private void CreateStatsPanel()
-        {
-            _statsPanel = new Panel
-            {
-                BackColor = Color.White,
-                Padding = new Padding(10)
-            };
-
-            _statsGroupBox = new GroupBox
-            {
-                Text = " 📊 统计信息 ",
-                Font = new Font("Microsoft YaHei UI", 10F, FontStyle.Bold),
-                Dock = DockStyle.Fill,
-                Padding = new Padding(10)
-            };
-
-            var statsLayout = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 8,
-                RowCount = 1,
-                Padding = new Padding(5)
-            };
-
-            // 设置列样式
-            for (int i = 0; i < 8; i++)
-            {
-                statsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 12.5F));
-            }
-
-            _totalLabel = new Label { Text = "扫描总数:", AutoSize = true, ForeColor = Color.Gray };
-            _totalValueLabel = new Label { Text = "0", AutoSize = true, ForeColor = Color.FromArgb(41, 128, 185), Font = new Font("Microsoft YaHei UI", 11F, FontStyle.Bold) };
-            
-            _successLabel = new Label { Text = "成功:", AutoSize = true, ForeColor = Color.Gray };
-            _successValueLabel = new Label { Text = "0", AutoSize = true, ForeColor = Color.FromArgb(46, 204, 113), Font = new Font("Microsoft YaHei UI", 11F, FontStyle.Bold) };
-            
-            _failedLabel = new Label { Text = "失败:", AutoSize = true, ForeColor = Color.Gray };
-            _failedValueLabel = new Label { Text = "0", AutoSize = true, ForeColor = Color.FromArgb(231, 76, 60), Font = new Font("Microsoft YaHei UI", 11F, FontStyle.Bold) };
-            
-            _manualLabel = new Label { Text = "人工:", AutoSize = true, ForeColor = Color.Gray };
-            _manualValueLabel = new Label { Text = "0", AutoSize = true, ForeColor = Color.FromArgb(155, 89, 182), Font = new Font("Microsoft YaHei UI", 11F, FontStyle.Bold) };
-
-            statsLayout.Controls.Add(_totalLabel, 0, 0);
-            statsLayout.Controls.Add(_totalValueLabel, 1, 0);
-            statsLayout.Controls.Add(_successLabel, 2, 0);
-            statsLayout.Controls.Add(_successValueLabel, 3, 0);
-            statsLayout.Controls.Add(_failedLabel, 4, 0);
-            statsLayout.Controls.Add(_failedValueLabel, 5, 0);
-            statsLayout.Controls.Add(_manualLabel, 6, 0);
-            statsLayout.Controls.Add(_manualValueLabel, 7, 0);
-
-            _statsGroupBox.Controls.Add(statsLayout);
-            _statsPanel.Controls.Add(_statsGroupBox);
-            this.Controls.Add(_statsPanel);
-        }
-
-        private void CreatePendingPanel()
-        {
-            _pendingGroupBox = new GroupBox
-            {
-                Text = " ⚠ 待处理文件 (识别失败) ",
-                Font = new Font("Microsoft YaHei UI", 10F, FontStyle.Bold),
-                Padding = new Padding(5)
-            };
-
-            _pendingListBox = new ListBox
-            {
-                Dock = DockStyle.Fill,
-                IntegralHeight = false,
-                Font = new Font("Consolas", 9F),
-                BackColor = Color.FromArgb(255, 250, 250)
-            };
-
-            _pendingGroupBox.Controls.Add(_pendingListBox);
-            this.Controls.Add(_pendingGroupBox);
-        }
-
-        private void CreateLogPanel()
-        {
-            _logPanel = new Panel
-            {
-                BackColor = Color.White,
-                Padding = new Padding(10)
-            };
-
-            var logContainer = new Panel
-            {
-                Dock = DockStyle.Fill
-            };
-
-            var logHeader = new Panel
-            {
-                Dock = DockStyle.Top,
-                Height = 35,
-                BackColor = Color.Transparent
-            };
-
-            var logLabel = new Label
-            {
-                Text = "📝 操作日志",
-                Font = new Font("Microsoft YaHei UI", 10F, FontStyle.Bold),
-                AutoSize = true,
-                Location = new Point(5, 8)
-            };
-
-            _clearLogButton = new Button
-            {
-                Text = "清空日志",
-                Width = 80,
-                Height = 28,
-                Location = new Point(logLabel.Right + 20, 3),
-                BackColor = Color.FromArgb(149, 165, 166),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Microsoft YaHei UI", 8F)
-            };
-            _clearLogButton.FlatAppearance.BorderSize = 0;
-
-            _openLogFolderButton = new Button
-            {
-                Text = "打开日志目录",
-                Width = 100,
-                Height = 28,
-                Location = new Point(_clearLogButton.Right + 10, 3),
-                BackColor = Color.FromArgb(149, 165, 166),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Microsoft YaHei UI", 8F)
-            };
-            _openLogFolderButton.FlatAppearance.BorderSize = 0;
-
-            logHeader.Controls.Add(logLabel);
-            logHeader.Controls.Add(_clearLogButton);
-            logHeader.Controls.Add(_openLogFolderButton);
-
-            _logListBox = new ListBox
-            {
-                Dock = DockStyle.Fill,
-                IntegralHeight = false,
-                Font = new Font("Consolas", 9F),
-                BackColor = Color.FromArgb(248, 249, 250)
-            };
-
-            logContainer.Controls.Add(_logListBox);
-            logContainer.Controls.Add(logHeader);
-
-            _logPanel.Controls.Add(logContainer);
-            this.Controls.Add(_logPanel);
         }
 
         private void CreateProgressPanel()
@@ -479,30 +149,423 @@ namespace BarcodeRenamer.Forms
             this.Controls.Add(_progressPanel);
         }
 
-        private void LayoutControls()
+        private void CreateMainLayout()
         {
-            // 使用 TableLayoutPanel 进行主布局
-            var mainLayout = new TableLayoutPanel
+            // 主内容区域
+            var contentPanel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(10)
+            };
+
+            // 使用垂直分割器分隔上下区域
+            _mainSplitter = new SplitContainer
+            {
+                Dock = DockStyle.Fill,
+                Orientation = Orientation.Horizontal,
+                SplitterDistance = 250,  // 上部区域初始高度
+                SplitterWidth = 8,
+                BackColor = Color.FromArgb(230, 230, 230)
+            };
+
+            // 上部区域：配置 + 控制 + 统计 + 待处理
+            var topPanel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.Transparent
+            };
+
+            // 下部区域：日志
+            var bottomPanel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.Transparent
+            };
+
+            // 创建上部内容
+            CreateTopContent(topPanel);
+            
+            // 创建下部内容
+            CreateLogContent(bottomPanel);
+
+            _mainSplitter.Panel1.Controls.Add(topPanel);
+            _mainSplitter.Panel2.Controls.Add(bottomPanel);
+
+            contentPanel.Controls.Add(_mainSplitter);
+            this.Controls.Add(contentPanel);
+        }
+
+        private void CreateTopContent(Panel parent)
+        {
+            var topTableLayout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 1,
-                RowCount = 6,
-                Padding = new Padding(0, 60, 0, 50) // 为 header 和 progress 留出空间
+                RowCount = 4,
+                BackColor = Color.Transparent
             };
 
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 100F));  // Config
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 55F));   // Control
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 60F));   // Stats
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 35F));    // Pending
-            mainLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 65F));    // Log
+            // 行高设置：配置(固定)、控制(固定)、统计(固定)、待处理(填充)
+            topTableLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 110F));   // Config
+            topTableLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 60F));    // Control
+            topTableLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 70F));    // Stats
+            topTableLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));    // Pending
 
-            mainLayout.Controls.Add(_configPanel, 0, 0);
-            mainLayout.Controls.Add(_controlPanel, 0, 1);
-            mainLayout.Controls.Add(_statsPanel, 0, 2);
-            mainLayout.Controls.Add(_pendingGroupBox, 0, 3);
-            mainLayout.Controls.Add(_logPanel, 0, 4);
+            // 配置区域
+            CreateConfigPanel();
+            topTableLayout.Controls.Add(_configPanel, 0, 0);
 
-            this.Controls.Add(mainLayout);
+            // 控制区域
+            CreateControlPanel();
+            topTableLayout.Controls.Add(_controlPanel, 0, 1);
+
+            // 统计区域
+            CreateStatsPanel();
+            topTableLayout.Controls.Add(_statsPanel, 0, 2);
+
+            // 待处理区域
+            CreatePendingPanel();
+            topTableLayout.Controls.Add(_pendingGroupBox, 0, 3);
+
+            parent.Controls.Add(topTableLayout);
+        }
+
+        private void CreateLogContent(Panel parent)
+        {
+            _logPanel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.White,
+                Padding = new Padding(5)
+            };
+
+            var logContainer = new Panel
+            {
+                Dock = DockStyle.Fill
+            };
+
+            var logHeader = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 40,
+                BackColor = Color.FromArgb(248, 249, 250)
+            };
+
+            var logLabel = new Label
+            {
+                Text = "📝 操作日志",
+                Font = new Font("Microsoft YaHei UI", 10F, FontStyle.Bold),
+                AutoSize = true,
+                Location = new Point(10, 10)
+            };
+
+            _clearLogButton = new Button
+            {
+                Text = "清空日志",
+                Width = 85,
+                Height = 28,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Location = new Point(parent.Width - 200, 6),
+                BackColor = Color.FromArgb(149, 165, 166),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Microsoft YaHei UI", 8.5F)
+            };
+            _clearLogButton.FlatAppearance.BorderSize = 0;
+
+            _openLogFolderButton = new Button
+            {
+                Text = "打开日志目录",
+                Width = 100,
+                Height = 28,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Location = new Point(parent.Width - 100, 6),
+                BackColor = Color.FromArgb(149, 165, 166),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Microsoft YaHei UI", 8.5F)
+            };
+            _openLogFolderButton.FlatAppearance.BorderSize = 0;
+
+            // 更新按钮位置
+            logHeader.Resize += (s, e) =>
+            {
+                _clearLogButton.Left = logHeader.Width - 195;
+                _openLogFolderButton.Left = logHeader.Width - 100;
+            };
+
+            logHeader.Controls.Add(logLabel);
+            logHeader.Controls.Add(_clearLogButton);
+            logHeader.Controls.Add(_openLogFolderButton);
+
+            _logListBox = new ListBox
+            {
+                Dock = DockStyle.Fill,
+                IntegralHeight = false,
+                Font = new Font("Consolas", 9F),
+                BackColor = Color.FromArgb(248, 249, 250),
+                BorderStyle = BorderStyle.FixedSingle
+            };
+
+            logContainer.Controls.Add(_logListBox);
+            logContainer.Controls.Add(logHeader);
+
+            _logPanel.Controls.Add(logContainer);
+            parent.Controls.Add(_logPanel);
+        }
+
+        private void CreateConfigPanel()
+        {
+            _configPanel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.White,
+                Padding = new Padding(5, 10, 5, 10)
+            };
+
+            _configGroupBox = new GroupBox
+            {
+                Text = " 📁 配置设置 ",
+                Font = new Font("Microsoft YaHei UI", 10F, FontStyle.Bold),
+                Dock = DockStyle.Fill,
+                Padding = new Padding(10, 8, 10, 5)
+            };
+
+            var innerPanel = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 3,
+                RowCount = 2,
+                Padding = new Padding(5)
+            };
+
+            innerPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            innerPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            innerPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90F));
+
+            // 扫描文件夹
+            _scanFolderLabel = new Label
+            {
+                Text = "扫描文件夹:",
+                AutoSize = true,
+                Margin = new Padding(5, 10, 10, 5),
+                Font = new Font("Microsoft YaHei UI", 9F)
+            };
+
+            _scanFolderTextBox = new TextBox
+            {
+                Dock = DockStyle.Fill,
+                Margin = new Padding(5, 5, 10, 5),
+                Font = new Font("Microsoft YaHei UI", 9.5F),
+                PlaceholderText = "选择要扫描的图片文件夹..."
+            };
+
+            _browseScanFolderButton = new Button
+            {
+                Text = "浏览...",
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0, 5, 5, 5),
+                BackColor = Color.FromArgb(52, 152, 219),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Microsoft YaHei UI", 9F)
+            };
+            _browseScanFolderButton.FlatAppearance.BorderSize = 0;
+
+            innerPanel.Controls.Add(_scanFolderLabel, 0, 0);
+            innerPanel.Controls.Add(_scanFolderTextBox, 1, 0);
+            innerPanel.Controls.Add(_browseScanFolderButton, 2, 0);
+
+            // 输出文件夹
+            _outputFolderLabel = new Label
+            {
+                Text = "输出文件夹:",
+                AutoSize = true,
+                Margin = new Padding(5, 10, 10, 5),
+                Font = new Font("Microsoft YaHei UI", 9F)
+            };
+
+            _outputFolderTextBox = new TextBox
+            {
+                Dock = DockStyle.Fill,
+                Margin = new Padding(5, 5, 10, 5),
+                Font = new Font("Microsoft YaHei UI", 9.5F),
+                PlaceholderText = "选择重命名后文件的输出文件夹..."
+            };
+
+            _browseOutputFolderButton = new Button
+            {
+                Text = "浏览...",
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0, 5, 5, 5),
+                BackColor = Color.FromArgb(52, 152, 219),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Microsoft YaHei UI", 9F)
+            };
+            _browseOutputFolderButton.FlatAppearance.BorderSize = 0;
+
+            innerPanel.Controls.Add(_outputFolderLabel, 0, 1);
+            innerPanel.Controls.Add(_outputFolderTextBox, 1, 1);
+            innerPanel.Controls.Add(_browseOutputFolderButton, 2, 1);
+
+            _configGroupBox.Controls.Add(innerPanel);
+            _configPanel.Controls.Add(_configGroupBox);
+        }
+
+        private void CreateControlPanel()
+        {
+            _controlPanel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.FromArgb(250, 250, 250),
+                Padding = new Padding(10, 10, 10, 10)
+            };
+
+            var flowPanel = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                Padding = new Padding(0),
+                Anchor = AnchorStyles.Left | AnchorStyles.Top
+            };
+
+            _startScanButton = new Button
+            {
+                Text = "▶ 开始扫描",
+                Size = new Size(130, 40),
+                Margin = new Padding(5, 5, 10, 5),
+                BackColor = Color.FromArgb(46, 204, 113),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Microsoft YaHei UI", 10F, FontStyle.Bold)
+            };
+            _startScanButton.FlatAppearance.BorderSize = 0;
+
+            _stopScanButton = new Button
+            {
+                Text = "⏹ 停止扫描",
+                Size = new Size(130, 40),
+                Margin = new Padding(0, 5, 10, 5),
+                BackColor = Color.FromArgb(231, 76, 60),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Microsoft YaHei UI", 10F, FontStyle.Bold),
+                Enabled = false
+            };
+            _stopScanButton.FlatAppearance.BorderSize = 0;
+
+            _manualProcessButton = new Button
+            {
+                Text = "✏ 人工审核",
+                Size = new Size(130, 40),
+                Margin = new Padding(0, 5, 10, 5),
+                BackColor = Color.FromArgb(155, 89, 182),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Microsoft YaHei UI", 10F, FontStyle.Bold)
+            };
+            _manualProcessButton.FlatAppearance.BorderSize = 0;
+
+            _saveConfigButton = new Button
+            {
+                Text = "💾 保存配置",
+                Size = new Size(120, 40),
+                Margin = new Padding(0, 5, 10, 5),
+                BackColor = Color.FromArgb(52, 73, 94),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Microsoft YaHei UI", 10F, FontStyle.Bold)
+            };
+            _saveConfigButton.FlatAppearance.BorderSize = 0;
+
+            flowPanel.Controls.Add(_startScanButton);
+            flowPanel.Controls.Add(_stopScanButton);
+            flowPanel.Controls.Add(_manualProcessButton);
+            flowPanel.Controls.Add(_saveConfigButton);
+
+            _controlPanel.Controls.Add(flowPanel);
+        }
+
+        private void CreateStatsPanel()
+        {
+            _statsPanel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.White,
+                Padding = new Padding(5, 5, 5, 10)
+            };
+
+            _statsGroupBox = new GroupBox
+            {
+                Text = " 📊 统计信息 ",
+                Font = new Font("Microsoft YaHei UI", 10F, FontStyle.Bold),
+                Dock = DockStyle.Fill,
+                Padding = new Padding(10, 8, 10, 5)
+            };
+
+            var statsLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 8,
+                RowCount = 1,
+                Padding = new Padding(5, 5, 5, 5)
+            };
+
+            // 设置列样式
+            for (int i = 0; i < 8; i++)
+            {
+                statsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 12.5F));
+            }
+
+            _totalLabel = new Label { Text = "扫描总数:", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Color.Gray, Font = new Font("Microsoft YaHei UI", 9F) };
+            _totalValueLabel = new Label { Text = "0", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Color.FromArgb(41, 128, 185), Font = new Font("Microsoft YaHei UI", 12F, FontStyle.Bold) };
+            
+            _successLabel = new Label { Text = "成功:", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Color.Gray, Font = new Font("Microsoft YaHei UI", 9F) };
+            _successValueLabel = new Label { Text = "0", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Color.FromArgb(46, 204, 113), Font = new Font("Microsoft YaHei UI", 12F, FontStyle.Bold) };
+            
+            _failedLabel = new Label { Text = "失败:", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Color.Gray, Font = new Font("Microsoft YaHei UI", 9F) };
+            _failedValueLabel = new Label { Text = "0", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Color.FromArgb(231, 76, 60), Font = new Font("Microsoft YaHei UI", 12F, FontStyle.Bold) };
+            
+            _manualLabel = new Label { Text = "人工:", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Color.Gray, Font = new Font("Microsoft YaHei UI", 9F) };
+            _manualValueLabel = new Label { Text = "0", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Color.FromArgb(155, 89, 182), Font = new Font("Microsoft YaHei UI", 12F, FontStyle.Bold) };
+
+            statsLayout.Controls.Add(_totalLabel, 0, 0);
+            statsLayout.Controls.Add(_totalValueLabel, 1, 0);
+            statsLayout.Controls.Add(_successLabel, 2, 0);
+            statsLayout.Controls.Add(_successValueLabel, 3, 0);
+            statsLayout.Controls.Add(_failedLabel, 4, 0);
+            statsLayout.Controls.Add(_failedValueLabel, 5, 0);
+            statsLayout.Controls.Add(_manualLabel, 6, 0);
+            statsLayout.Controls.Add(_manualValueLabel, 7, 0);
+
+            _statsGroupBox.Controls.Add(statsLayout);
+            _statsPanel.Controls.Add(_statsGroupBox);
+        }
+
+        private void CreatePendingPanel()
+        {
+            _pendingGroupBox = new GroupBox
+            {
+                Text = " ⚠ 待处理文件 (识别失败，双击进行人工处理) ",
+                Font = new Font("Microsoft YaHei UI", 10F, FontStyle.Bold),
+                Dock = DockStyle.Fill,
+                Padding = new Padding(8, 8, 8, 8),
+                BackColor = Color.White
+            };
+
+            _pendingListBox = new ListBox
+            {
+                Dock = DockStyle.Fill,
+                IntegralHeight = false,
+                Font = new Font("Consolas", 9.5F),
+                BackColor = Color.FromArgb(255, 253, 253),
+                BorderStyle = BorderStyle.FixedSingle,
+                SelectionMode = SelectionMode.One
+            };
+
+            _pendingGroupBox.Controls.Add(_pendingListBox);
         }
 
         private void InitializeEventHandlers()
