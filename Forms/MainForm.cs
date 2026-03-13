@@ -13,6 +13,11 @@ namespace BarcodeRenamer.Forms
         private readonly BarcodeService _barcodeService;
         private readonly FileService _fileService;
 
+        // 托盘图标和菜单
+        private NotifyIcon _notifyIcon = null!;
+        private ContextMenuStrip _trayContextMenu = null!;
+        private bool _reallyClose = false;
+
         // UI 控件
         private Panel _headerPanel = null!;
         private Panel _configPanel = null!;
@@ -66,6 +71,7 @@ namespace BarcodeRenamer.Forms
             _fileService = new FileService(_barcodeService);
             
             InitializeComponent();
+            InitializeTrayIcon();
             InitializeEventHandlers();
             LoadSettings();
         }
@@ -82,6 +88,20 @@ namespace BarcodeRenamer.Forms
             this.Font = new Font("Microsoft YaHei UI", 9F);
             this.BackColor = Color.FromArgb(240, 240, 240);
 
+            // 尝试加载图标
+            try
+            {
+                var iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app.ico");
+                if (File.Exists(iconPath))
+                {
+                    this.Icon = new Icon(iconPath);
+                }
+            }
+            catch
+            {
+                // 忽略图标加载失败
+            }
+
             // 创建各区域
             CreateHeaderPanel();
             CreateProgressPanel();
@@ -89,6 +109,82 @@ namespace BarcodeRenamer.Forms
 
             this.ResumeLayout(false);
             this.PerformLayout();
+        }
+
+        private void InitializeTrayIcon()
+        {
+            // 创建托盘菜单
+            _trayContextMenu = new ContextMenuStrip();
+            
+            var showMenuItem = new ToolStripMenuItem("显示主界面");
+            showMenuItem.Click += (s, e) => ShowMainWindow();
+            
+            var exitMenuItem = new ToolStripMenuItem("退出程序");
+            exitMenuItem.Click += (s, e) => ExitApplication();
+
+            _trayContextMenu.Items.Add(showMenuItem);
+            _trayContextMenu.Items.Add(new ToolStripSeparator());
+            _trayContextMenu.Items.Add(exitMenuItem);
+
+            // 创建托盘图标
+            _notifyIcon = new NotifyIcon
+            {
+                Text = "Barcode Renamer - 图片条形码识别重命名工具",
+                Visible = true,
+                ContextMenuStrip = _trayContextMenu
+            };
+
+            // 尝试加载托盘图标
+            try
+            {
+                var iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app.ico");
+                if (File.Exists(iconPath))
+                {
+                    _notifyIcon.Icon = new Icon(iconPath);
+                }
+                else
+                {
+                    // 使用默认系统图标
+                    _notifyIcon.Icon = SystemIcons.Application;
+                }
+            }
+            catch
+            {
+                _notifyIcon.Icon = SystemIcons.Application;
+            }
+
+            // 双击托盘图标显示主窗口
+            _notifyIcon.DoubleClick += (s, e) => ShowMainWindow();
+        }
+
+        private void ShowMainWindow()
+        {
+            this.Show();
+            this.WindowState = FormWindowState.Normal;
+            this.Activate();
+            this.BringToFront();
+        }
+
+        private void ExitApplication()
+        {
+            _reallyClose = true;
+            
+            // 停止扫描
+            if (_fileService.IsScanning)
+            {
+                _fileService.StopScan();
+            }
+
+            // 保存配置
+            _settings.ScanFolder = _scanFolderTextBox.Text;
+            _settings.OutputFolder = _outputFolderTextBox.Text;
+            _settings.Save();
+
+            // 清理托盘图标
+            _notifyIcon.Visible = false;
+            _notifyIcon.Dispose();
+
+            Application.Exit();
         }
 
         private void CreateHeaderPanel()
@@ -157,21 +253,6 @@ namespace BarcodeRenamer.Forms
                 Dock = DockStyle.Fill,
                 Padding = new Padding(10, 5, 10, 5)
             };
-
-            // 使用嵌套的 SplitContainer 实现所有区域可拖动调整
-            // 结构：从上到下依次分割
-            // 
-            // ┌─────────────────────┐
-            // │ 配置区域            │ ← split1.Panel1
-            // ├─────────────────────┤ ← split1.Splitter
-            // │ 控制按钮            │ ← split1.Panel2 → split2.Panel1
-            // ├─────────────────────┤ ← split2.Splitter
-            // │ 统计信息            │ ← split2.Panel2 → split3.Panel1
-            // ├─────────────────────┤ ← split3.Splitter
-            // │ 待处理文件          │ ← split3.Panel2 → split4.Panel1
-            // ├─────────────────────┤ ← split4.Splitter
-            // │ 操作日志            │ ← split4.Panel2
-            // └─────────────────────┘
 
             // 创建所有区域面板
             CreateConfigPanel();
@@ -828,20 +909,26 @@ namespace BarcodeRenamer.Forms
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            // 如果不是真正退出，则最小化到托盘
+            if (!_reallyClose)
+            {
+                e.Cancel = true;
+                this.Hide();
+                
+                // 显示托盘提示
+                _notifyIcon.ShowBalloonTip(2000, "Barcode Renamer", "程序已最小化到系统托盘，双击图标可重新打开", ToolTipIcon.Info);
+                
+                // 保存配置
+                _settings.ScanFolder = _scanFolderTextBox.Text;
+                _settings.OutputFolder = _outputFolderTextBox.Text;
+                _settings.Save();
+                
+                return;
+            }
+
+            // 真正退出时的清理
             if (_fileService.IsScanning)
             {
-                var result = MessageBox.Show(
-                    "扫描正在进行中，确定要退出吗？",
-                    "确认退出",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Question);
-
-                if (result == DialogResult.No)
-                {
-                    e.Cancel = true;
-                    return;
-                }
-
                 _fileService.StopScan();
             }
 
@@ -850,6 +937,16 @@ namespace BarcodeRenamer.Forms
             _settings.Save();
 
             base.OnFormClosing(e);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _notifyIcon?.Dispose();
+                _trayContextMenu?.Dispose();
+            }
+            base.Dispose(disposing);
         }
     }
 }
